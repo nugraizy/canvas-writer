@@ -1,5 +1,6 @@
 const Canvas = require('canvas');
 const Image = Canvas.Image;
+const fs = require('fs');
 
 class CanvasWriter {
     /**
@@ -70,7 +71,7 @@ class CanvasWriter {
         this.ctx.save();
 
         let maxLines = options.maxLines || 0;
-        if (this.lineCount >= maxLines) return this;
+        if (this.lineCount >= maxLines && maxLines > 0) return this;
 
         let offsetX = options.x || 5;
         let offsetY = options.y || 5;
@@ -141,6 +142,7 @@ class CanvasWriter {
      * @return This CanvasWriter.
      */
     writeWrapped(text, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
+        this.ctx.font = options.font || '16px serif';
         let results = [];
 
         let reduceToFit = (text) => {
@@ -192,6 +194,7 @@ class CanvasWriter {
      * @return This CanvasWriter.
      */
     writeWordWrapped(text, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
+        this.ctx.font = options.font || '16px serif';
         let results = [];
 
         let reduceToFit = (text) => {
@@ -321,6 +324,23 @@ class CanvasWriter {
             this.canvas.toBuffer((err, buffer) => {
                 if (err) return reject(err);
                 resolve(buffer);
+            });
+        });
+    }
+
+    /**
+     * Saves the Canvas as a file.
+     * @param {string} path Path to save to.
+     * @param {object} options Options for fs.writeFile().
+     * @return A Promise with error or path.
+     */
+    saveFile(path, options){
+        return new Promise((resolve, reject) => {
+            this.buffer().then(buffer => {
+                fs.writeFile(path, buffer, options, err => {
+                    if (err) reject(err);
+                    resolve(path);
+                });
             });
         });
     }
