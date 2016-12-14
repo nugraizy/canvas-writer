@@ -1,0 +1,25 @@
+{
+  "name": "canvas-writer",
+  "version": "1.0.0",
+  "description": "Wrapper for node-canvas to help with drawing text.",
+  "main": "index.js",
+  "author": "1Computer",
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^1.6.2"
+  },
+  "keywords": [
+    "node-canvas",
+    "wrapping",
+    "text",
+    "draw"
+  ],
+"repository": {
+    "type": "git",
+    "url": "https://github.com/1Computer1/canvas-writer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/1Computer1/canvas-writer/issues"
+  },
+  "homepage": "https://github.com/1Computer1/canvas-writer"
+}
