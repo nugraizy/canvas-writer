@@ -152,7 +152,7 @@ class CanvasWriter {
                 let section = text;
                 let j = 1;
 
-                while (this.ctx.measureText(section).width > maxWidth){
+                while (this.ctx.measureText(section).width > maxWidth && section.length > 1){
                     section = section.slice(0, -1);
                     j += 1;
                 }
@@ -204,7 +204,7 @@ class CanvasWriter {
                 let section = text;
                 let j = 1;
 
-                while (this.ctx.measureText(section).width > maxWidth){
+                while (this.ctx.measureText(section).width > maxWidth && section.length > 1){
                     section = section.slice(0, -1);
                     j += 1;
                 }
@@ -226,7 +226,7 @@ class CanvasWriter {
                 let section = words;
                 let remainder = [];
 
-                while (this.ctx.measureText(section.join(' ')).width > maxWidth){
+                while (this.ctx.measureText(section.join(' ')).width > maxWidth && section.join(' ').length > 1){
                     if (section.length === 1){
                         let extra = reduceToFit(section.join(' '));
                         return splitToFit(extra + ' ' + remainder.join(' '));
