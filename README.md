@@ -8,20 +8,20 @@ const CanvasWriter = require('canvas-writer');
 
 let picture = new CanvasWriter(new Canvas(200, 200));
 
-picture.write('Hello world! Text that will probably be wrapped onto the next lines because it\'s longer than that -> ', 80, {
+picture.write('Hello world! Text that will probably be wrapped onto the next lines because it\'s longer than that -> ', 100, {
     font: '16px "Segoe UI"',
     style: 'white'
 });
 
 console.log(picture.toString());
-// Hello world! Text
-// that will
+// Hello world!
+// Text that will
 // probably be
 // wrapped onto
 // the next lines
 // because it's
-// longer than that
-// ->
+// longer than
+// that ->
 
 picture.saveFile('./mypicture.png'); // You're done!
 ```
