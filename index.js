@@ -138,7 +138,7 @@ class CanvasWriter {
         this.ctx.save();
 
         let maxLines = writeOptions.maxLines || 0;
-        if (this.lineCount >= maxLines && maxLines > 0) return this;
+        if (text.length > maxLines && maxLines > 0) return this;
 
         let offsetX = writeOptions.x || 5;
         let offsetY = writeOptions.y || 5;
@@ -176,6 +176,9 @@ class CanvasWriter {
             this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + this.ctx.lineWidth + breakSpacing + spacing;
             this.lineNumber++;
 
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            this.ctx.restore();
+
             return this;
         }
 
@@ -188,7 +191,9 @@ class CanvasWriter {
         this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + breakSpacing + spacing;
         this.lineNumber++;
 
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.restore();
+
         return this;
     }
 
