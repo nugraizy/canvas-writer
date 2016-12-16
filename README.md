@@ -27,5 +27,4 @@ picture.saveFile('./mypicture.png'); // You're done!
 ```
 
 ### Documentation
-See the [Github wiki](https://github.com/1Computer1/canvas-writer/wiki) for documentation.  
-(Currently too busy to write them. Just look at the documentation in the source code!)
+See the [Github wiki](https://github.com/1Computer1/canvas-writer/wiki) for documentation, changelog, and more.

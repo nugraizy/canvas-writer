@@ -18,8 +18,16 @@ class CanvasWriter {
         /** The current y coord to write text on. */
         this.line = 0;
 
+        /** The current line number. */
+        this.lineNumber = 0;
+
         /** Text that has been written on the Canvas and the options used for them. */
         this.texts = [];
+    }
+
+    /** The first write operation on this CanvasWriter. */
+    get firstWrite(){
+        return this.texts[0];
     }
 
     /** The previous write operation on this CanvasWriter. */
@@ -30,6 +38,49 @@ class CanvasWriter {
     /** The current line count. */
     get lineCount(){
         return this.texts.length;
+    }
+
+    /** Lowest x value and highest x value in the text written. */
+    get rangeX(){
+        let furthest = this.texts.map(t => {
+            if (t.writeOptions.rotate === 0 || !t.writeOptions.rotate) return t.x + t.measure.width;
+
+            let pivot = 0;
+            let x = t.x + t.measure.width;
+            let y = t.y + t.measure.emHeightDescent;
+            let angle = -t.writeOptions.rotate * Math.PI / 180;
+
+            let rotatedX = pivot + (x - pivot) * Math.cos(angle) + (y - pivot) * Math.sin(angle);
+            return rotatedX;
+        }).sort((a, b) => a - b);
+
+        return [furthest[0], furthest.slice(-1)[0]];
+    }
+
+    /** Lowest y value and highest y value in the text written. */
+    get rangeY(){
+        let furthest = this.texts.map(t => {
+            if (t.writeOptions.rotate === 0 || !t.writeOptions.rotate) return t.y + t.measure.emHeightDescent;
+
+            let pivot = 0;
+            let x = t.x + t.measure.width;
+            let y = t.y + t.measure.emHeightDescent;
+            let angle = -t.writeOptions.rotate * Math.PI / 180;
+
+            let rotatedY = pivot - (x - pivot) * Math.sin(angle) + (y - pivot) * Math.cos(angle);
+            return rotatedY;
+        }).sort((a, b) => a - b);
+
+        return [furthest[0], furthest.slice(-1)[0]];
+    }
+
+    /**
+     * Restores the drawing state. Recommended to use if you changed some options for other things and want to reset to default for writing text.
+     * @return This CanvasWriter.
+     */
+    restore(){
+        this.ctx.restore();
+        return this;
     }
 
     /**
@@ -48,71 +99,94 @@ class CanvasWriter {
     }
 
     /**
+     * Draws an image.
+     * @param {Buffer} buffer A buffer.
+     * @param {number} x x coordinate.
+     * @param {number} y y coordinate.
+     * @param {number} width The width.
+     * @param {number} height The height.
+     * @return This CanvasWriter.
+     */
+    drawImage(buffer, x, y, width, height){
+        this.ctx.save();
+
+        let image = new Image();
+        image.src = buffer;
+        this.ctx.drawImage(image, x, y, width, height);
+
+        this.ctx.restore();
+        return this;
+    }
+
+    /**
      * Draws a background image.
      * @param {Buffer} buffer A buffer.
      * @return This CanvasWriter.
      */
     drawBackgroundImage(buffer){
-        let image = new Image();
-        image.src = buffer;
-        this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
-
-        return this;
+        return this.drawImage(buffer, 0, 0, this.canvas.width, this.canvas.height);
     }
 
     /**
      * Writes a line of text.
      * @param {string} text Text to write.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeText(text, options = {}, strokeOptions = {}){
+    writeText(text, writeOptions = {}, strokeOptions){
         this.ctx.save();
 
-        let maxLines = options.maxLines || 0;
+        let maxLines = writeOptions.maxLines || 0;
         if (this.lineCount >= maxLines && maxLines > 0) return this;
 
-        let offsetX = options.x || 5;
-        let offsetY = options.y || 5;
-        let spacing = options.spacing || 0;
+        let offsetX = writeOptions.x || 5;
+        let offsetY = writeOptions.y || 5;
+        let breakSpacing = writeOptions.breakSpacing || 0;
+        if (text !== '\n') breakSpacing = 0;
+        
+        let spacing = writeOptions.spacing || 0;
         if (this.line === 0) spacing = 0;
 
-        this.ctx.font = options.font || '16px serif';
-        this.ctx.fillStyle = options.style || 'white';
-        this.ctx.textAlign = options.align || 'start';
+        this.ctx.font = writeOptions.font || '10px sans-serif';
+        this.ctx.fillStyle = writeOptions.style || 'black';
+        this.ctx.textAlign = writeOptions.align || 'left';
+        this.ctx.globalAlpha = writeOptions.opacity || 1.0;
+        this.ctx.rotate((writeOptions.rotate || 0) * Math.PI / 180);
 
-        this.ctx.shadowColor = options.shadowColor;
-        this.ctx.shadowOffsetX = options.shadowX || 0;
-        this.ctx.shadowOffsetY = options.shadowY || 0;
-        this.ctx.shadowBlur = options.shadowBlur || 0;
+        this.ctx.shadowColor = writeOptions.shadowColor;
+        this.ctx.shadowOffsetX = writeOptions.shadowX || 0;
+        this.ctx.shadowOffsetY = writeOptions.shadowY || 0;
+        this.ctx.shadowBlur = writeOptions.shadowBlur || 0;
 
-        this.ctx.strokeStyle =  strokeOptions.style;
-        this.ctx.lineWidth = strokeOptions.width;
-        this.ctx.lineJoin = strokeOptions.join;
+        let measure = this.ctx.measureText(text === '\n' ? '' : text);
 
-        let measure = this.ctx.measureText(text);
+        if (strokeOptions){
+            this.ctx.strokeStyle = strokeOptions.style;
+            this.ctx.lineWidth = strokeOptions.width;
+            this.ctx.lineJoin = strokeOptions.join;
 
-        if (strokeOptions.style || strokeOptions.width || strokeOptions.join){
             let xSpace = (this.ctx.textAlign === 'center' ? 0 : measure.actualBoundingBoxLeft + this.ctx.lineWidth) + offsetX;
-            let ySpace = this.line + measure.actualBoundingBoxAscent + this.ctx.lineWidth + spacing + offsetY;
+            let ySpace = this.line + measure.actualBoundingBoxAscent + this.ctx.lineWidth + spacing + breakSpacing + offsetY;
 
-            this.texts.push({text, xSpace, ySpace, options, strokeOptions});
+            this.texts.push({text, measure, line: this.line, lineNumber: this.lineNumber, x: xSpace, y: ySpace, writeOptions, strokeOptions});
 
-            this.ctx.strokeText(text, xSpace, ySpace);
-            this.ctx.fillText(text, xSpace, ySpace);
-            this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + this.ctx.lineWidth + spacing;
+            this.ctx.strokeText(text === '\n' ? '' : text, xSpace, ySpace);
+            this.ctx.fillText(text === '\n' ? '' : text, xSpace, ySpace);
+            this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + this.ctx.lineWidth + breakSpacing + spacing;
+            this.lineNumber++;
 
             return this;
         }
 
         let xSpace = (this.ctx.textAlign === 'center' ? 0 : measure.actualBoundingBoxLeft) + offsetX;
-        let ySpace = this.line + measure.actualBoundingBoxAscent + spacing + offsetY;
+        let ySpace = this.line + measure.actualBoundingBoxAscent + spacing + breakSpacing + offsetY;
 
-        this.texts.push({text, xSpace, ySpace, options, strokeOptions});
+        this.texts.push({text, measure, line: this.line, lineNumber: this.lineNumber, x: xSpace, y: ySpace, writeOptions, strokeOptions});
 
-        this.ctx.fillText(text, xSpace, ySpace);
-        this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + spacing;
+        this.ctx.fillText(text === '\n' ? '' : text, xSpace, ySpace);
+        this.line += measure.actualBoundingBoxAscent + measure.emHeightDescent + breakSpacing + spacing;
+        this.lineNumber++;
 
         this.ctx.restore();
         return this;
@@ -121,15 +195,15 @@ class CanvasWriter {
     /**
      * Writes multiple lines of text.
      * @param {string|Array} lines Lines to write, either in an array or separated by newlines.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeLines(lines, options = {}, strokeOptions = {}){
+    writeLines(lines, writeOptions = {}, strokeOptions = {}){
         let texts = lines;
-        if (typeof texts === 'string') texts = texts.split('\n');
+        if (typeof texts === 'string') texts = texts.split('\n').map(t => !t ? '' : t);
 
-        texts.forEach(t => this.writeText(t, options, strokeOptions));
+        texts.forEach(t => this.writeText(t, writeOptions, strokeOptions));
         return this;
     }
 
@@ -137,12 +211,12 @@ class CanvasWriter {
      * Writes and wraps a line of text.
      * @param {string|Array} text Text to write.
      * @param {number} maxWidth Maximum text width.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeWrapped(text, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
-        this.ctx.font = options.font || '16px serif';
+    writeWrapped(text, maxWidth = this.canvas.width, writeOptions = {}, strokeOptions){
+        this.ctx.font = writeOptions.font || '10px sans-serif';
         let results = [];
 
         let reduceToFit = (text) => {
@@ -165,7 +239,7 @@ class CanvasWriter {
         };
 
         reduceToFit(text);
-        this.writeLines(results, options, strokeOptions);
+        this.writeLines(results, writeOptions, strokeOptions);
         return this;
     }
 
@@ -173,15 +247,15 @@ class CanvasWriter {
      * Writes and wraps multiple lines of text.
      * @param {string|Array} lines Lines to write, either in an array or separated by newlines.
      * @param {number} maxWidth Maximum text width.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeWrappedLines(lines, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
+    writeWrappedLines(lines, maxWidth = this.canvas.width, writeOptions = {}, strokeOptions){
         let texts = lines;
-        if (typeof texts === 'string') texts = texts.split('\n');
+        if (typeof texts === 'string') texts = texts.split('\n').map(t => !t ? '' : t);
 
-        texts.forEach(t => this.writeWrapped(t, maxWidth, options, strokeOptions));
+        texts.forEach(t => this.writeWrapped(t, maxWidth, writeOptions, strokeOptions));
         return this;
     }
 
@@ -189,12 +263,12 @@ class CanvasWriter {
      * Writes and wraps a line of text by whitespace.
      * @param {string|Array} text Text to write.
      * @param {number} maxWidth Maximum text width.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeWordWrapped(text, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
-        this.ctx.font = options.font || '16px serif';
+    writeWordWrapped(text, maxWidth = this.canvas.width, writeOptions = {}, strokeOptions){
+        this.ctx.font = writeOptions.font || '10px sans-serif';
         let results = [];
 
         let reduceToFit = (text) => {
@@ -243,7 +317,7 @@ class CanvasWriter {
         };
 
         splitToFit(text);
-        this.writeLines(results, options, strokeOptions);
+        this.writeLines(results, writeOptions, strokeOptions);
         return this;
     }
 
@@ -251,15 +325,15 @@ class CanvasWriter {
      * Writes and wraps multiple lines of text by whitespace.
      * @param {string|Array} lines Lines to write, either in an array or separated by newlines.
      * @param {number} maxWidth Maximum text width.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    writeWordWrappedLines(lines, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
+    writeWordWrappedLines(lines, maxWidth = this.canvas.width, writeOptions = {}, strokeOptions){
         let texts = lines;
-        if (typeof texts === 'string') texts = texts.split('\n');
-
-        texts.forEach(t => this.writeWordWrapped(t, maxWidth, options, strokeOptions));
+        if (typeof texts === 'string') texts = texts.split('\n').map(t => !t ? '\n' : t);
+        
+        texts.forEach(t => this.writeWordWrapped(t, maxWidth, writeOptions, strokeOptions));
         return this;
     }
 
@@ -267,34 +341,58 @@ class CanvasWriter {
      * Shortcut to writeWordWrappedLines().
      * @param {string|Array} lines Lines to write, either in an array or separated by newlines.
      * @param {number} maxWidth Maximum text width.
-     * @param {WriteOptions} options Options for the drawing of the text.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
      * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
      * @return This CanvasWriter.
      */
-    write(lines, maxWidth = this.canvas.width, options = {}, strokeOptions = {}){
-        return this.writeWordWrappedLines(lines, maxWidth, options, strokeOptions);
+    write(lines, maxWidth = this.canvas.width, writeOptions = {}, strokeOptions){
+        return this.writeWordWrappedLines(lines, maxWidth, writeOptions, strokeOptions);
     }
 
     /**
-     * Checks if the text fits on the Canvas vertically.
-     * Not always reliable due to differences in fonts.
-     * @return Whether or not it fits.
+     * Checks if the text fits on the Canvas.
+     * @param {string} xOrY Whether to check 'x' or 'y', leave blank for both.
+     * @return Whether or not text fits.
      */
-    isFitting(){
-        return this.line < this.canvas.height;
+    isFitting(xOrY){
+        if (xOrY === 'x') return this.rangeX[1] < this.canvas.width || this.rangeX[0] > 0;
+        if (xOrY === 'y') return this.rangeY[1] < this.canvas.height || this.rangeY[0] > 0;
+
+        return this.rangeX[1] < this.canvas.width
+        || this.rangeX[0] > 0
+        || this.rangeY[1] < this.canvas.height 
+        || this.rangeY[0] > 0;
     }
 
     /**
      * Clones the text drawn on the given CanvasWriter to this one.
-     * @param {CanvasWriter} CanvasWriter CanvasWriter to clone from.
+     * @param {CanvasWriter} canvasWriter CanvasWriter to clone from.
      * @param {number} limit How many lines to clone.
      * @return This CanvasWriter.
      */
-    cloneFrom(CanvasWriter, limit = CanvasWriter.texts.length){
-        let toClone = CanvasWriter.texts.slice(0, limit);
+    cloneFrom(canvasWriter, limit = canvasWriter.texts.length){
+        let toClone = canvasWriter.texts.slice(0, limit);
 
         toClone.forEach(t => {
-            this.writeText(t.text, t.options, t.strokeOptions, t.shadowOptions);
+            this.writeText(t.text, t.writeOptions, t.strokeOptions);
+        });
+
+        return this;
+    }
+
+    /**
+     * Clones the text drawn on the given CanvasWriter to this one with the given options.
+     * @param {CanvasWriter} canvasWriter CanvasWriter to clone from.
+     * @param {number} limit How many lines to clone.
+     * @param {WriteOptions} writeOptions Options for the drawing of the text.
+     * @param {StrokeOptions} strokeOptions Options for the stroke of the text.
+     * @return This CanvasWriter.
+     */
+    cloneWith(canvasWriter, limit = canvasWriter.texts.length, writeOptions, strokeOptions){
+        let toClone = canvasWriter.texts.slice(0, limit);
+
+        toClone.forEach(t => {
+            this.writeText(t.text, writeOptions, strokeOptions);
         });
 
         return this;
