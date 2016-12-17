@@ -205,7 +205,7 @@ class CanvasWriter {
         let texts = lines;
         if (typeof texts === 'string') texts = texts.split('\n').map(t => !t ? '' : t);
 
-        let maxLines = writeOptions.maxLines || 0;
+        let maxLines = writeOptions.maxLines;
         texts = texts.slice(0, maxLines);
 
         texts.forEach(t => this.writeText(t, writeOptions, strokeOptions));
