@@ -137,9 +137,6 @@ class CanvasWriter {
     writeText(text, writeOptions = {}, strokeOptions){
         this.ctx.save();
 
-        let maxLines = writeOptions.maxLines || 0;
-        if (text.length > maxLines && maxLines > 0) return this;
-
         let offsetX = writeOptions.x || 5;
         let offsetY = writeOptions.y || 5;
         let breakSpacing = writeOptions.breakSpacing || 0;
@@ -207,6 +204,9 @@ class CanvasWriter {
     writeLines(lines, writeOptions = {}, strokeOptions = {}){
         let texts = lines;
         if (typeof texts === 'string') texts = texts.split('\n').map(t => !t ? '' : t);
+
+        let maxLines = writeOptions.maxLines || 0;
+        texts = texts.slice(0, maxLines);
 
         texts.forEach(t => this.writeText(t, writeOptions, strokeOptions));
         return this;
