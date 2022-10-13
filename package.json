@@ -6,7 +6,7 @@
   "author": "1Computer",
   "license": "MIT",
   "dependencies": {
-    "canvas": "^1.6.2"
+    "canvas": "^2.9.3"
   },
   "keywords": [
     "node-canvas",
